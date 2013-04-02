@@ -16,7 +16,7 @@
 ; - "left" move the worm head left
 ; - "right" move the worm head right
 
-(define-struct worm (pos dir))
+(define-struct worm (posn dir))
 ; A Worm is a structure: (make-worm Number Command)
 ; interp. (make-worm p d) means the worm is at position (p)
 ; on the grid and is going in the direction (d)
@@ -43,20 +43,31 @@
 ; Core Functions
 ;---------------
 
-; Worm Command -> Worm
+; Game Command -> Game
 ; move the worm based on the command
 
-(define (move-worm-dir w cmd)
+(define (change-dir w cmd)
   (cond
-    [(key=? cmd "up") (make-worm (- (posn-x (worm-pos w)) SCALE)
-                                 "up")]
-    [(key=? cmd "down") (make-worm (+ (posn-x (worm-pos w)) SCALE)
-                                  "down")]
-    [(key=? cmd "left") (make-worm (- (posn-y (worm-pos w)) SCALE)
-                                  "left")]
-    [(key=? cmd "right") (make-worm (+ (posn-y (worm-pos w)) SCALE)
-                                    "right")]
+    [(key=? cmd "up") (make-game (make-worm (worm-posn (game-worm w)) "up"))]
+    [(key=? cmd "down") (make-game (make-worm (worm-posn (game-worm w)) "down"))]
+    [(key=? cmd "left") (make-game (make-worm (worm-posn (game-worm w)) "left"))]
+    [(key=? cmd "right") (make-game (make-worm (worm-posn (game-worm w)) "right"))]
     [else w]))
+
+; Game -> Game
+; Update the game state each frame
+
+(define (move gs)
+  (let* ([z (game-worm gs)]
+         [pos (worm-posn z)]
+         [x (posn-x pos)]
+         [y (posn-y pos)])
+  (cond
+    [(string=? (worm-dir z) "up") (make-game (make-worm (make-posn x (- y GRID)) "up"))]
+    [(string=? (worm-dir z) "down") (make-game (make-worm (make-posn x (+ y GRID)) "down"))]
+    [(string=? (worm-dir z) "left") (make-game (make-worm (make-posn (- x GRID) y) "left"))]
+    [(string=? (worm-dir z) "right") (make-game (make-worm (make-posn (+ x GRID) y) "right"))]
+    [else gs])))
 
 ;------------------
 ; Display Rendering
@@ -66,16 +77,16 @@
 (define FIELD (rectangle FIELD-WIDTH FIELD-HEIGHT "solid" "white"))
 (define WORM-HEAD (circle HEAD-RADIUS "solid" "red"))
 
-; Worm -> Scene
+; Game -> Scene
 ; render the worm-head on the screen
-(define (render-worm_head wh)
+(define (render-worm_head gs)
   (place-image WORM-HEAD
-               (posn-x wh)
-               (posn-y wh)
-               FIELD)
+               (posn-x (worm-posn (game-worm gs)))
+               (posn-y (worm-posn (game-worm gs)))
+               FIELD))
 
 ; Create the world
 (big-bang INITIAL-GAME
-          (on-tick udate)
-          (on-key control-game)
-          (to-draw render-worm))
+          (on-tick move 0.1)
+          (on-key change-dir)
+          (to-draw render-worm_head))
