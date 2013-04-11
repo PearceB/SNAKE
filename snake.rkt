@@ -39,9 +39,41 @@
 (define INITIAL-WORM (make-worm WORM-POS "down"))
 (define INITIAL-GAME (make-game INITIAL-WORM))
 
-;---------------
-; Core Functions
-;---------------
+;--------------------------
+; Core Function Definitions
+;--------------------------
+
+; Game -> Boolean
+; Check to see if the worm is going off the top of the screen
+
+(define (off-top gs)
+  (<= (posn-x (worm-posn (game-worm gs))) HEAD-RADIUS))
+
+; Game -> Boolean
+; Check to see if the worm is going off the bottom of the screen
+
+(define (off-bottom gs)
+  (>= (posn-x (worm-posn (game-worm gs))) (- FIELD-HEIGHT HEAD-RADIUS)))
+
+; Game -> Boolean
+; Check to see if the worm is going off the left side of the screen
+
+(define (off-left gs)
+  (<= (posn-y (worm-posn (game-worm gs))) HEAD-RADIUS))
+
+; Game -> Boolean
+; Check to see if the worm is going off the right side of the screen
+
+(define (off-right gs)
+  (>= (posn-y (worm-posn (game-worm gs))) (- FIELD-WIDTH HEAD-RADIUS)))
+
+; Game -> Boolean
+; Stop the game when the worm has collided with one of the "walls"
+
+(define (detect-collision gs)
+  (if (or (off-top gs) (off-bottom gs) (off-left gs) (off-right gs))
+      true
+      false))
 
 ; Game Command -> Game
 ; move the worm based on the command
@@ -85,8 +117,19 @@
                (posn-y (worm-posn (game-worm gs)))
                FIELD))
 
+; Game -> Scene
+; Render the end game scene
+(define (render-egame gs)
+  (place-image WORM-HEAD
+               (posn-x (worm-posn (game-worm gs)))
+               (posn-y (worm-posn (game-worm gs)))
+               (overlay/align "left" "bottom"
+                              (text "Worm Hit Border" 12 "black")
+                              FIELD)))
+
 ; Create the world
 (big-bang INITIAL-GAME
           (on-tick move 0.1)
           (on-key change-dir)
-          (to-draw render-worm_head))
+          (to-draw render-worm_head)
+          (stop-when detect-collision render-egame))
