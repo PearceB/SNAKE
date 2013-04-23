@@ -16,10 +16,10 @@
 ; - "left" move the worm head left
 ; - "right" move the worm head right
 
-(define-struct worm (posn dir))
-; A Worm is a structure: (make-worm Number Command)
-; interp. (make-worm p d) means the worm is at position (p)
-; on the grid and is going in the direction (d)
+(define-struct worm (posn tail dir))
+; A Worm is a structure: (make-worm Position List Command)
+; interp. (make-worm p t d) means the worm is at position (p)
+; on the grid, has a tail (t), and is going in the direction (d)
 
 (define-struct game (worm))
 ; A Game is a structure: (make-game Worm)
@@ -36,12 +36,12 @@
 (define FIELD-HEIGHT (* GRID SCALE))
 
 (define WORM-POS (make-posn GRID SCALE))
-(define INITIAL-WORM (make-worm WORM-POS "down"))
+(define INITIAL-WORM (make-worm WORM-POS empty "down"))
 (define INITIAL-GAME (make-game INITIAL-WORM))
 
-;--------------------------
-; Core Function Definitions
-;--------------------------
+;----------------------------
+; Helper Function Definitions
+;----------------------------
 
 ; Game -> Boolean
 ; Check to see if the worm is going off the top of the screen
@@ -67,6 +67,15 @@
 (define (off-right gs)
   (>= (posn-y (worm-posn (game-worm gs))) (- FIELD-WIDTH HEAD-RADIUS)))
 
+; List -> List
+; take a list and give back a list containing the previous list except the last entree
+(define (remove_last list)
+  (reverse (rest (reverse list))))
+
+;--------------------------
+; Core Function Definitions
+;--------------------------
+
 ; Game -> Boolean
 ; Stop the game when the worm has collided with one of the "walls"
 
@@ -80,10 +89,10 @@
 
 (define (change-dir w cmd)
   (cond
-    [(key=? cmd "up") (make-game (make-worm (worm-posn (game-worm w)) "up"))]
-    [(key=? cmd "down") (make-game (make-worm (worm-posn (game-worm w)) "down"))]
-    [(key=? cmd "left") (make-game (make-worm (worm-posn (game-worm w)) "left"))]
-    [(key=? cmd "right") (make-game (make-worm (worm-posn (game-worm w)) "right"))]
+    [(key=? cmd "up") (make-game (make-worm (worm-posn (game-worm w)) empty "up"))]
+    [(key=? cmd "down") (make-game (make-worm (worm-posn (game-worm w)) empty "down"))]
+    [(key=? cmd "left") (make-game (make-worm (worm-posn (game-worm w)) empty "left"))]
+    [(key=? cmd "right") (make-game (make-worm (worm-posn (game-worm w)) empty "right"))]
     [else w]))
 
 ; Game -> Game
@@ -93,13 +102,18 @@
   (let* ([z (game-worm gs)]
          [pos (worm-posn z)]
          [x (posn-x pos)]
-         [y (posn-y pos)])
-  (cond
-    [(string=? (worm-dir z) "up") (make-game (make-worm (make-posn x (- y GRID)) "up"))]
-    [(string=? (worm-dir z) "down") (make-game (make-worm (make-posn x (+ y GRID)) "down"))]
-    [(string=? (worm-dir z) "left") (make-game (make-worm (make-posn (- x GRID) y) "left"))]
-    [(string=? (worm-dir z) "right") (make-game (make-worm (make-posn (+ x GRID) y) "right"))]
-    [else gs])))
+         [y (posn-y pos)]
+         [update  (cond
+                    [(string=? (worm-dir z) "up") (make-game (make-worm (make-posn x (- y GRID)) empty "up"))]
+                    [(string=? (worm-dir z) "down") (make-game (make-worm (make-posn x (+ y GRID)) empty "down"))]
+                    [(string=? (worm-dir z) "left") (make-game (make-worm (make-posn (- x GRID) y) empty "left"))]
+                    [(string=? (worm-dir z) "right") (make-game (make-worm (make-posn (+ x GRID) y) empty "right"))]
+                    [else gs])]
+         [new-tail
+          (if (empty? (worm-tail z))
+              empty
+              (cons pos (remove_last (worm-tail z))))])
+    (make-game (make-worm pos new-tail (worm-dir z)))))
 
 ;------------------
 ; Display Rendering
@@ -108,6 +122,7 @@
 ; Graphical Constants
 (define FIELD (rectangle FIELD-WIDTH FIELD-HEIGHT "solid" "white"))
 (define WORM-HEAD (circle HEAD-RADIUS "solid" "red"))
+(define WORM-TAIL (circle HEAD-RADIUS "solid" "green"))
 
 ; Game -> Scene
 ; render the worm-head on the screen
@@ -116,6 +131,21 @@
                (posn-x (worm-posn (game-worm gs)))
                (posn-y (worm-posn (game-worm gs)))
                FIELD))
+
+; Game -> Scene
+; render a worm-tail segment on the screen
+(define (render-worm_tail gs)
+  (place-image WORM-TAIL
+               10
+               10
+               FIELD))
+
+; Game -> Scene
+; render the worm-body on the screen
+(define (render-worm_body tail gs)
+  (cond
+    [(empty? (worm-tail (game-worm gs))) (render-worm_head gs)]
+    [else (render-worm_tail WORM-TAIL (first tail) (render-tail (rest tail) img))]))
 
 ; Game -> Scene
 ; Render the end game scene
@@ -131,5 +161,5 @@
 (big-bang INITIAL-GAME
           (on-tick move 0.1)
           (on-key change-dir)
-          (to-draw render-worm_head)
+          (to-draw render-worm_body)
           (stop-when detect-collision render-egame))
