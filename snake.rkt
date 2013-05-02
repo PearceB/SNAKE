@@ -36,7 +36,7 @@
 (define FIELD-HEIGHT (* GRID SCALE))
 
 (define WORM-POS (make-posn (* 2 SCALE) (* 2 SCALE)))
-(define WORM-TAIL (list (make-posn (* 2 SCALE) SCALE)))
+(define WORM-TAIL (list (make-posn (* 2 SCALE) SCALE) (make-posn (* 2 SCALE) 0)))
 (define INITIAL-WORM (make-worm WORM-POS WORM-TAIL "down"))
 (define INITIAL-GAME (make-game INITIAL-WORM))
 
@@ -98,8 +98,19 @@
 ; Check to see if the worm has collided with one of its tail segments
 
 (define (detect-collision_tail gs list)
-  [(empty? list) false]
-  [else (collision-tail 
+  (cond
+    [(empty? list) false]
+    [else (if (collision-tail (first list) gs)
+            true
+            (detect-collision_tail gs (rest list)))]))
+
+; Game List -> Boolean
+; Combine the two collision detecters
+
+(define (detect-collision gs)
+  (if (or (detect-collision_wall gs) (detect-collision_tail gs (worm-tail (game-worm gs))))
+      true
+      false))
 
 ; Game Command -> Game
 ; move the worm based on the command
@@ -172,13 +183,12 @@
 ; Game -> Scene
 ; Render the end game scene
 (define (render-egame gs)
-  (cond
-    [(detect-collision_wall gs) (place-image WORM-HEAD
-                                        (posn-x (worm-posn (game-worm gs)))
-                                        (posn-y (worm-posn (game-worm gs)))
-                                        (overlay/align "left" "bottom"
-                                                       (text "Worm Hit Border" 12 "black")
-                                                       FIELD))]
+  (place-image WORM-HEAD
+               (posn-x (worm-posn (game-worm gs)))
+               (posn-y (worm-posn (game-worm gs)))
+               (overlay/align "left" "bottom"
+                              (text "LOL You Lost :D" 12 "black")
+                              FIELD)))
 
 ; Create the world
 (big-bang INITIAL-GAME
