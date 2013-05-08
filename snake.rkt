@@ -21,24 +21,26 @@
 ; interp. (make-worm p t d) means the worm is at position (p)
 ; on the grid, has a tail (t), and is going in the direction (d)
 
-(define-struct game (worm))
+(define-struct game (worm food))
 ; A Game is a structure: (make-game Worm)
 ; interp. (make-game Worm) means that the state of the game
-; is made up of the state of the Worm head
+; is made up of the state of the Worm head and the Position of the food particle
 
 ;-------------------
 ; Physical Constants
 ;-------------------
 (define GRID 20)
 (define SCALE 30)
-(define HEAD-RADIUS (/ SCALE 2))
+(define MAX (- GRID 1))
+(define RADIUS (/ SCALE 2))
 (define FIELD-WIDTH (* GRID SCALE))
 (define FIELD-HEIGHT (* GRID SCALE))
 
 (define WORM-POS (make-posn (* 2 SCALE) (* 2 SCALE)))
-(define WORM-TAIL (list (make-posn (* 2 SCALE) SCALE) (make-posn (* 2 SCALE) 0)))
+(define WORM-TAIL (list (make-posn (* 2 SCALE) SCALE) (make-posn (* 2 SCALE) 0) (make-posn (* 2 SCALE) (- 0 SCALE))))
 (define INITIAL-WORM (make-worm WORM-POS WORM-TAIL "down"))
-(define INITIAL-GAME (make-game INITIAL-WORM))
+(define INITIAL-GAME (make-game INITIAL-WORM (make-posn (* SCALE (+ 1 (random MAX)))
+                                                        (* SCALE (+ 1 (random MAX))))))
 
 ;----------------------------
 ; Helper Function Definitions
@@ -48,25 +50,25 @@
 ; Check to see if the worm is going off the top of the screen
 
 (define (off-top gs)
-  (<= (posn-x (worm-posn (game-worm gs))) HEAD-RADIUS))
+  (<= (posn-x (worm-posn (game-worm gs))) RADIUS))
 
 ; Game -> Boolean
 ; Check to see if the worm is going off the bottom of the screen
 
 (define (off-bottom gs)
-  (>= (posn-x (worm-posn (game-worm gs))) (- FIELD-HEIGHT HEAD-RADIUS)))
+  (>= (posn-x (worm-posn (game-worm gs))) (- FIELD-HEIGHT RADIUS)))
 
 ; Game -> Boolean
 ; Check to see if the worm is going off the left side of the screen
 
 (define (off-left gs)
-  (<= (posn-y (worm-posn (game-worm gs))) HEAD-RADIUS))
+  (<= (posn-y (worm-posn (game-worm gs))) RADIUS))
 
 ; Game -> Boolean
 ; Check to see if the worm is going off the right side of the screen
 
 (define (off-right gs)
-  (>= (posn-y (worm-posn (game-worm gs))) (- FIELD-WIDTH HEAD-RADIUS)))
+  (>= (posn-y (worm-posn (game-worm gs))) (- FIELD-WIDTH RADIUS)))
 
 ; Position Game -> Boolean
 ; Stop the game when the worm has collided with its "tail"
@@ -76,15 +78,6 @@
            (= (posn-y posn) (posn-y (worm-posn (game-worm gs)))))
       true
       false))
-
-; List -> List
-; take a list and give back a list containing the previous list except the last entree
-(define (remove_last list)
-  (reverse (rest (reverse list))))
-
-;--------------------------
-; Core Function Definitions
-;--------------------------
 
 ; Game -> Boolean
 ; Stop the game when the worm has collided with one of the "walls"
@@ -104,44 +97,73 @@
             true
             (detect-collision_tail gs (rest list)))]))
 
+; List -> List
+; take a list and give back a list containing the previous list except the last entree
+(define (remove_last list)
+  (reverse (rest (reverse list))))
+
+;--------------------------
+; Core Function Definitions
+;--------------------------
+
 ; Game List -> Boolean
 ; Combine the two collision detecters
 
 (define (detect-collision gs)
-  (if (or (detect-collision_wall gs) (detect-collision_tail gs (worm-tail (game-worm gs))))
-      true
-      false))
+  (or (detect-collision_wall gs) (detect-collision_tail gs (worm-tail (game-worm gs)))))
+
+; Position Position -> Position
+; Generate food only after the worm head has collided with the previous food head
+
+(define (food-check-create p pos)
+  (if (equal? p pos) (make-posn (* SCALE (+ 1 (random MAX)))
+                                (* SCALE (+ 1 (random MAX)))) p))
+
+; Game -> Position
+; Create food at random positions on the FIELD assuming MAX is greater than 1
+
+(define (food-create gs)
+  (food-check-create (game-food gs) (worm-posn (game-worm gs))))
+
+; Game List -> List
+; Add a new tail segment if the worm head collided with a food particle
+
+(define (new-segment gs lst) 0)
 
 ; Game Command -> Game
 ; move the worm based on the command
 
 (define (change-dir gs cmd)
   (cond
-    [(key=? cmd "up") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "up"))]
-    [(key=? cmd "down") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "down"))]
-    [(key=? cmd "left") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "left"))]
-    [(key=? cmd "right") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "right"))]
+    [(key=? cmd "up") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "up")
+                                 (game-food gs))]
+    [(key=? cmd "down") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "down")
+                                   (game-food gs))]
+    [(key=? cmd "left") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "left")
+                                   (game-food gs))]
+    [(key=? cmd "right") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "right")
+                                    (game-food gs))]
     [else gs]))
 
 ; Game -> Game
 ; Update the game state each frame
 
-(define (move gs)
+(define (update gs)
   (let* ([z (game-worm gs)]
          [pos (worm-posn z)]
          [x (posn-x pos)]
          [y (posn-y pos)]
-         [update  (cond
-                    [(string=? (worm-dir z) "up") (make-posn x (- y SCALE))]
-                    [(string=? (worm-dir z) "down") (make-posn x (+ y SCALE))]
-                    [(string=? (worm-dir z) "left") (make-posn (- x SCALE) y)]
-                    [(string=? (worm-dir z) "right") (make-posn (+ x SCALE) y)]
-                    [else gs])]
+         [move  (cond
+                  [(string=? (worm-dir z) "up") (make-posn x (- y SCALE))]
+                  [(string=? (worm-dir z) "down") (make-posn x (+ y SCALE))]
+                  [(string=? (worm-dir z) "left") (make-posn (- x SCALE) y)]
+                  [(string=? (worm-dir z) "right") (make-posn (+ x SCALE) y)]
+                  [else gs])]
          [new-tail
           (if (empty? (worm-tail z))
               empty
               (cons pos (remove_last (worm-tail z))))])
-    (make-game (make-worm update new-tail (worm-dir z)))))
+    (make-game (make-worm move new-tail (worm-dir z)) (food-create gs))))
 
 ;------------------
 ; Display Rendering
@@ -149,8 +171,9 @@
 
 ; Graphical Constants
 (define FIELD (rectangle FIELD-WIDTH FIELD-HEIGHT "solid" "white"))
-(define WORM-HEAD (circle HEAD-RADIUS "solid" "red"))
-(define WORM-SEGMENT (circle HEAD-RADIUS "solid" "green"))
+(define WORM-HEAD (circle RADIUS "solid" "red"))
+(define WORM-SEGMENT (circle RADIUS "solid" "green"))
+(define FOOD (circle RADIUS "solid" "blue"))
 
 ; Game -> Image
 ; render the worm-head on the screen
@@ -178,21 +201,21 @@
 ; Game -> Scene
 ; render the whole game state
 (define (render-gamestate gs)
-  (render-worm_tail (worm-tail (game-worm gs)) (render-worm_head gs)))
+  (place-image FOOD
+               (posn-x (game-food gs))
+               (posn-y (game-food gs))
+               (render-worm_tail (worm-tail (game-worm gs)) (render-worm_head gs))))
 
 ; Game -> Scene
 ; Render the end game scene
 (define (render-egame gs)
-  (place-image WORM-HEAD
-               (posn-x (worm-posn (game-worm gs)))
-               (posn-y (worm-posn (game-worm gs)))
-               (overlay/align "left" "bottom"
-                              (text "LOL You Lost :D" 12 "black")
-                              FIELD)))
+  (overlay/align "left" "bottom"
+                 (text "LOL You Lost :D" 12 "black")
+                 (render-gamestate gs)))
 
 ; Create the world
 (big-bang INITIAL-GAME
-          (on-tick move 0.1)
+          (on-tick update 0.1)
           (on-key change-dir)
           (to-draw render-gamestate)
           (stop-when detect-collision render-egame))
