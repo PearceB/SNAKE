@@ -123,20 +123,24 @@
 
 (define (food-create gs)
   (food-check-create (game-food gs) (worm-posn (game-worm gs))))
-  
+
 ; Game Command -> Game
 ; move the worm based on the command
 
 (define (change-dir gs cmd)
   (cond
-    [(key=? cmd "up") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "up")
-                                 (game-food gs))]
-    [(key=? cmd "down") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "down")
-                                   (game-food gs))]
-    [(key=? cmd "left") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "left")
-                                   (game-food gs))]
-    [(key=? cmd "right") (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "right")
-                                    (game-food gs))]
+    [(and (key=? cmd "up") (not (string=? (worm-dir (game-worm gs)) "down")))
+     (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "up")
+                (game-food gs))]
+    [(and (key=? cmd "down") (not (string=? (worm-dir (game-worm gs)) "up")))
+     (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "down")
+                (game-food gs))]
+    [(and (key=? cmd "left") (not (string=? (worm-dir (game-worm gs)) "right")))
+     (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "left")
+                (game-food gs))]
+    [(and (key=? cmd "right") (not (string=? (worm-dir (game-worm gs)) "left")))
+     (make-game (make-worm (worm-posn (game-worm gs)) (worm-tail (game-worm gs)) "right")
+                (game-food gs))]
     [else gs]))
 
 ; Game -> Game
