@@ -37,7 +37,7 @@
 (define FIELD-HEIGHT (* GRID SCALE))
 
 (define WORM-POS (make-posn (* 2 SCALE) (* 2 SCALE)))
-(define WORM-TAIL (list (make-posn (* 2 SCALE) SCALE) (make-posn (* 2 SCALE) 0) (make-posn (* 2 SCALE) (- 0 SCALE))))
+(define WORM-TAIL empty)
 (define INITIAL-WORM (make-worm WORM-POS WORM-TAIL "down"))
 (define INITIAL-GAME (make-game INITIAL-WORM (make-posn (* SCALE (+ 1 (random MAX)))
                                                         (* SCALE (+ 1 (random MAX))))))
@@ -74,18 +74,14 @@
 ; Stop the game when the worm has collided with its "tail"
 
 (define (collision-tail posn gs)
-  (if (and (= (posn-x posn) (posn-x (worm-posn (game-worm gs))))
-           (= (posn-y posn) (posn-y (worm-posn (game-worm gs)))))
-      true
-      false))
+  (and (= (posn-x posn) (posn-x (worm-posn (game-worm gs))))
+           (= (posn-y posn) (posn-y (worm-posn (game-worm gs))))))
 
 ; Game -> Boolean
 ; Stop the game when the worm has collided with one of the "walls"
 
 (define (detect-collision_wall gs)
-  (if (or (off-top gs) (off-bottom gs) (off-left gs) (off-right gs))
-      true
-      false))
+  (or (off-top gs) (off-bottom gs) (off-left gs) (off-right gs)))
 
 ; Game List -> Boolean
 ; Check to see if the worm has collided with one of its tail segments
@@ -99,6 +95,9 @@
 
 ; List -> List
 ; take a list and give back a list containing the previous list except the last entree
+(check-expect (remove_last (list 1)) empty)
+(check-expect (remove_last (list 1 2)) (list 1))
+
 (define (remove_last list)
   (reverse (rest (reverse list))))
 
@@ -124,12 +123,7 @@
 
 (define (food-create gs)
   (food-check-create (game-food gs) (worm-posn (game-worm gs))))
-
-; Game List -> List
-; Add a new tail segment if the worm head collided with a food particle
-
-(define (new-segment gs lst) 0)
-
+  
 ; Game Command -> Game
 ; move the worm based on the command
 
@@ -160,9 +154,11 @@
                   [(string=? (worm-dir z) "right") (make-posn (+ x SCALE) y)]
                   [else gs])]
          [new-tail
-          (if (empty? (worm-tail z))
-              empty
-              (cons pos (remove_last (worm-tail z))))])
+          (if (equal? (game-food gs) pos)
+              (cons pos (worm-tail z))
+              (if (empty? (worm-tail z))
+                  empty
+                  (cons pos (remove_last (worm-tail z)))))])
     (make-game (make-worm move new-tail (worm-dir z)) (food-create gs))))
 
 ;------------------
@@ -177,6 +173,7 @@
 
 ; Game -> Image
 ; render the worm-head on the screen
+
 (define (render-worm_head gs)
   (place-image WORM-HEAD
                (posn-x (worm-posn (game-worm gs)))
@@ -185,6 +182,7 @@
 
 ; Position Image -> Image
 ; render a worm-tail segment on the screen
+
 (define (render-worm_segment pos img)
   (place-image WORM-SEGMENT
                (posn-x pos)
@@ -193,6 +191,7 @@
 
 ; List Image -> Image
 ; render the worm-body on the screen
+
 (define (render-worm_tail list img)
   (cond
     [(empty? list) img]
@@ -200,6 +199,7 @@
 
 ; Game -> Scene
 ; render the whole game state
+
 (define (render-gamestate gs)
   (place-image FOOD
                (posn-x (game-food gs))
@@ -208,12 +208,14 @@
 
 ; Game -> Scene
 ; Render the end game scene
+
 (define (render-egame gs)
   (overlay/align "left" "bottom"
                  (text "LOL You Lost :D" 12 "black")
                  (render-gamestate gs)))
 
 ; Create the world
+
 (big-bang INITIAL-GAME
           (on-tick update 0.1)
           (on-key change-dir)
